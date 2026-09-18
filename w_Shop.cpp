@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <sstream>
 #include <ctime>
 #include <cstdlib>
 #include <conio.h>
@@ -7,12 +9,12 @@ using namespace std;
 
 struct Account{
 
-    string acc_No;
-    string acc_Name;
-    int b_day, b_month, b_year;
-    string c_Num;
-    string pin;
-    double balance;
+    string acc_No; // Account Number/Id
+    string acc_Name; // Name
+    int b_day, b_month, b_year; // Date of Birth
+    string c_Num; // Contact Number
+    string pin; // Account pin
+    double balance; // Balance of the account
 
     Account(string accNo, string accName, int bday, int b_m, int b_y, string cNum, string pinCode, double bal){
     acc_No = accNo;
@@ -30,13 +32,12 @@ struct Account{
     }
 
 };
-
 struct Node{
     Account data;
     Node* next;
     Node(Account acc){
         data = acc;
-        next = nullptr;
+        next = NULL;
     }
 };
 
@@ -45,12 +46,11 @@ class Acc_L{
     Node *head;
 
     public:
-
     Acc_L(){
-        head = nullptr;
+        head = NULL;
     }
 
-    void Insert_Node(Account s){
+    void add_Node(Account s){
         Node* newNode = new Node(s);
 
         if(head == NULL){
@@ -64,7 +64,7 @@ class Acc_L{
         curr->next = newNode;
     }
 
-    void Delete_Node(string accNo){
+    void del_Node(string accNo){
 
         if(head == NULL){
             cout << "No current account is in the database yet." << endl;
@@ -104,11 +104,11 @@ class Acc_L{
 
     string GenerateAccountNum(){
     string accNo;
-       // srand(time(0)); 
+       // srand(time(0));  put this at top of main()
     do {
         int num = rand() % 90000 + 10000;   // always 5 digits: 10000–99999
         accNo = to_string(num);
-    } while (Search_node(accNo) != nullptr);  // regenerate on collision
+    } while (Search_node(accNo) != NULL);  // regenerate on collision
 
     return accNo;
 }
@@ -142,11 +142,9 @@ class Acc_L{
                 }
             }
         }
-    
         return pin;
     }
 
-    
     const int PIN_SHIFT_KEY = 3;   // how many positions each digit shifts by
     string encryptPin(string plainPin){
         string encryptedPin = plainPin;
@@ -155,9 +153,9 @@ class Acc_L{
             int originalDigit = encryptedPin[i] - '0';               // char '0'-'9' -> int 0-9
             int shiftedDigit = (originalDigit + PIN_SHIFT_KEY) % 10;  // shift forward, wrap past 9
             encryptedPin[i] = char('0' + shiftedDigit);               // int 0-9 -> char '0'-'9'
-            }
-            return encryptedPin;
         }
+        return encryptedPin;
+    }
 
     string decryptPin(string encryptedPin){
         string decryptedPin = encryptedPin;
@@ -166,10 +164,93 @@ class Acc_L{
             int shiftedDigit = decryptedPin[i] - '0';                         // char -> int
             int originalDigit = (shiftedDigit - PIN_SHIFT_KEY + 10) % 10;     // shift back, +10 avoids negatives
             decryptedPin[i] = char('0' + originalDigit);                      // int -> char
-            }
-        return decryptedPin;
         }
+        return decryptedPin;
+    }
     
+    void saveInfo(){
+        ofstream FILE_s("Data.csv");
+        if(!FILE_s){
+            cout << "Could not find the file.";
+            return;
+        }
+        Node *curr = head;
+        while(curr != NULL){
+            FILE_s << curr->data.acc_No << ","
+                   << curr->data.acc_Name << ","
+                   << curr->data.b_day << ","
+                   << curr->data.b_month << ","
+                   << curr->data.b_year << ","
+                   << curr->data.c_Num << ","
+                   << curr->data.pin << ","
+                   << curr->data.balance << "\n";
+                curr = curr->next;  
+        }
+        FILE_s.close();
+    }
+
+    void retrieveInfo(){
+    ifstream FILE_s("Data.csv");
+
+    if(!FILE_s){
+        cout << "No existing account database.\n";
+        return;
+    }
+
+    string line;
+    while(getline(FILE_s, line)){
+
+        if(line.empty()) continue;
+        stringstream ss(line);
+        string accNo, accName, dayStr, monthStr, yearStr, cNum, pin, balStr;
+
+        if(!getline(ss, accNo, ',')) continue;
+        if(!getline(ss, accName, ',')) continue;
+        if(!getline(ss, dayStr, ',')) continue;
+        if(!getline(ss, monthStr, ',')) continue;
+        if(!getline(ss, yearStr, ',')) continue;
+        if(!getline(ss, cNum, ',')) continue;
+        if(!getline(ss, pin, ',')) continue;
+        if(!getline(ss, balStr, ',')) continue;
+
+        try {
+            int d = stoi(dayStr);
+            int m = stoi(monthStr);
+            int y = stoi(yearStr);
+            double bal = stod(balStr);
+            Account acc(accNo, accName, d, m, y, cNum, pin, bal);
+            add_Node(acc);
+        }
+        catch(...) {
+            cout << "Skipped a corrupted row while loading.\n";
+            continue;
+        }
+    }
+    FILE_s.close();
+    }
+
+    void SaveExternal(string accNo, string accName, string encryptedPin){
+        ofstream cardUsb("Card.txt");
+
+        if(!cardUsb){
+            cout << "Could not write to Graham.txt.\n";
+            return;
+        }
+        cardUsb << accNo << "\n" << accName << "\n" << encryptedPin << "\n";
+        cardUsb.close();
+    }
+
+    bool RetrieveExternal(string &accNo, string &accName, string &encryptedPin){
+        ifstream cardUsb("Card.txt");
+
+        if(!cardUsb) return false;
+        if(!getline(cardUsb, accNo)) return false;
+        if(!getline(cardUsb, accName)) return false;
+        if(!getline(cardUsb, encryptedPin)) return false;
+        cardUsb.close();
+        return true;
+    }
+
 
     void reg_Nacc(){
 
@@ -203,7 +284,7 @@ class Acc_L{
             }
             validDate = true;
 
-        } while (!validDate);
+        }while(!validDate);
 
         double I_Deposit;
 
@@ -217,18 +298,11 @@ class Acc_L{
 
         string accNo = GenerateAccountNum();
         string encryptedPin = encryptPin(getMaskedPin());
-
         Account newAcc(accNo, w_name,  day,  month,  year, coNum, encryptedPin, I_Deposit);
-        Insert_Node(newAcc);
-
-/*        saveInfo();          // rewrite ProjectData.csv with the full updated list
-        SaveExternal(accNo, accName, encryptedPin);   // write ATMCard.txt
-*/
+        add_Node(newAcc);
+        saveInfo(); // save info for next retrieval
+        SaveExternal(accNo, w_name, encryptedPin);   // save to card
         cout << "Registration successful! Your account number is " << accNo << endl;
-
-
     }
 
 };
-
-
