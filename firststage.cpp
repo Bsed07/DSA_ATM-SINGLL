@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <iomanip>
+#include <conio.h>
 #include <ctime>
 
 using namespace std;
@@ -42,16 +43,19 @@ struct Node{
 class Account_List{
     private:
         Node *head;
+        int PIN_SHIFT_KEY = 3; // Shift cipher offset used for encryption
+        
         Node* Search_node(string accNo){
-        Node *curr = head;
-        while(curr != NULL){
-            if(curr->data.acc_No == accNo){
-                return curr;
+            Node *curr = head;
+            while(curr != NULL){
+                if(curr->data.acc_No == accNo){
+                    return curr;
+                }
+                curr = curr->next;
             }
-            curr = curr->next;
+            return NULL;
         }
-        return NULL;
-    }
+        
     public:
     Account_List(){
         head = NULL;
@@ -72,106 +76,247 @@ class Account_List{
 
     string GetBirthday(){
         int month, day, year;
+        char slash1, slash2; // Safely catches and holds formatting characters
         bool ValidDate = false;
         int daysInMonth[] = { 31, 100, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+        
         do {
             cout << "Enter birthday (MM/DD/YYYY): ";
-            cin >> month >> day >> year;
+            cin >> month >> slash1 >> day >> slash2 >> year;
+            
+            // 1. Check if user typed characters or symbols that broke the stream type
+            if (cin.fail()) {
+                cin.clear();              
+                cin.ignore(1000, '\n');   
+                cout << "Invalid input format. Use numbers and slashes." << endl;
+                continue;
+            }
+
+            // 2. Reject inputs that lack actual forward slashes (fixes continuous number inputs like 02122000)
+            if (slash1 != '/' || slash2 != '/') {
+                cin.clear();
+                cin.ignore(1000, '\n'); 
+                cout << "Invalid format. You must use slashes (/). Example: 02/12/2000" << endl;
+                continue; 
+            }
+
             if (month < 1 || month > 12) {
+                cin.clear();
+                cin.ignore(1000, '\n');
                 cout << "Invalid month. Please try again." << endl;
                 continue;
             }
-            // Check for leap year under construction
+            
             bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
             if (isLeapYear && month == 2) {
-                daysInMonth[1] = 29; // February gets 29 days in a leap year
+                daysInMonth[1] = 29; 
             } else {
-                daysInMonth[1] = 28; // Reset February to 28 days 
+                daysInMonth[1] = 28; 
             }
 
             if (day < 1 || day > daysInMonth[month - 1]) {
+                cin.clear();
+                cin.ignore(1000, '\n');
                 cout << "Invalid day for the given month. Please try again." << endl;
                 continue;
             }
 
-            if (year < 1900 || year > 2025) {
+            if (year < 1900 || year > 2026) {
+                cin.clear();
+                cin.ignore(1000, '\n');
                 cout << "Invalid year. Please try again." << endl;
                 continue;
             }
+
+            ValidDate = true; 
+            cin.ignore(1000, '\n');
            
         } while (!ValidDate);
-        return to_string(month) + "/" + to_string(day) + "/" + to_string(year);
+
+
+
+        string monthStr = (month < 10) ? "0" + to_string(month) : to_string(month);
+        string dayStr = (day < 10) ? "0" + to_string(day) : to_string(day);
+        string yearStr = to_string(year);
+        return monthStr + "/" + dayStr + "/" + yearStr;
     }
 
     string GenerateAccountNum(){
        string accNo;
-       // srand(time(0));  put this at top of main()
+       do {
+            int num = rand() % 90000 + 10000;   // always 5 digits: 10000–99999
+            accNo = to_string(num);
+        } while (Search_node(accNo) != NULL);  // regenerate on collision
+
+        return accNo;
+    }
+
+    string GetMaskedPin() {
+        char pin[7];         // max 6 digits + 1 slot for the terminator
+        int pinLength = 0;   // how many digits typed so far
+        char ch;
+
+        cout << "Enter PIN (4-6 digits, then press ENTER): ";
+
+        while(true){
+            ch = _getch();
+
+            if(ch == '\r'){
+                if(pinLength >= 4){
+                    cout << endl;
+                    break;
+                }
+                else{
+                 continue; 
+                }
+            }
+            else if(ch == '\b'){
+                if(pinLength == 0){
+                    continue; 
+                }
+                pinLength = pinLength - 1; 
+                cout << "\b \b";           
+            }
+            else if(ch >= '0' && ch <= '9'){
+                if(pinLength < 6){
+                    pin[pinLength] = ch;     
+                    pinLength = pinLength + 1;
+                    cout << '*';             
+                }
+            }
+        }
+
+        pin[pinLength] = '\0'; 
+        return string(pin);
+    }
+
+    string encryptPin(string plainPin){
+        string encryptedPin = plainPin;
+        for(size_t i = 0; i < encryptedPin.size(); i++){
+             int originalDigit = encryptedPin[i] - '0';
+             int shiftedDigit = (originalDigit + PIN_SHIFT_KEY) % 10;  
+             encryptedPin[i] = char('0' + shiftedDigit);               
+        }
+        return encryptedPin;
+    }
+
+    string GetContactNumber(){
+        string contact;
+        bool isValid = false;
+
         do {
-        int num = rand() % 90000 + 10000;   // always 5 digits: 10000–99999
-        accNo = to_string(num);
-    } while (Search_node(accNo) != NULL);  // regenerate on collision
+            cout << "Enter Contact Number (11 digits, e.g., 09171234567):";
+            getline(cin, contact);
 
-    return accNo;
-}
+            if (contact.size()!=11){
+                cout << "Invalid Length. The number must be exactly 11 digits long.\n";
+                continue;
+            }
 
+            if (contact[0] != '0' || contact[1] != '9'){
+                cout << "invalid prefix. Philippine mobile numbers must start with '09'.\n" << endl;
+                continue;
+            }
 
-void CreateAccount() {
-    string name, bday, contact, pin;
-    double initialDeposit;
+            bool hasNoneDigit = false;
+            for (size_t i = 0; i < contact.size(); i++){
+                if (contact[i] < '0' || contact[i] > '9') {
+                    hasNoneDigit = true;
+                    break;
+                }
+            }
+            if (hasNoneDigit) {
+                cout << "Invalid characters detected. The number must only contain digits.\n" << endl;
+                continue;
+            }
 
-    cout << "=== CREATE NEW ACCOUNT ===\n";
-    cout << "Enter Full Name: ";
-    cin.ignore(); // Clear input buffer
-    getline(cin, name);
-    cout << "Enter Birthday (MM/DD/YYYY): ";
-    getline(cin, bday);
-    cout << "Enter Contact Number: ";
-    getline(cin, contact);
-    cout << "Enter PIN(4-6 characters): ";
-    getline(cin, pin);
-    cout << "Enter Initial Deposit Amount: PHP ";
-    cin >> initialDeposit;
+            isValid = true;
 
-    // 1. Automatically generate the unique 5-digit ID
-    string generatedNo = GenerateAccountNum();
+        } while (!isValid);
 
-    // TODO: Encrypt your PIN here before saving it!
-
-    // 2. Create the Account object
-    Account newAcc(generatedNo, name, bday, contact, pin, initialDeposit);
-
-    // 3. Insert it into the linked list
-    Insert_Node(newAcc);
-
-}
-
-
-void Display_All() {
-    if (head == NULL) {
-        cout << "No accounts found in the system.\n";
-        return;
+        return contact;
     }
 
-    Node* curr = head;
-    cout << "\n================ ALL ACCOUNTS ================\n";
-    while (curr != NULL) {
-        cout << "Account No : " << curr->data.acc_No << endl;
-        cout << "Name       : " << curr->data.acc_Name << endl;
-        cout << "Birthday   : " << curr->data.b_day << endl;
-        cout << "Contact    : " << curr->data.c_Num << endl;
-        cout << "Balance    : PHP " << fixed << setprecision(2) << curr->data.balance << endl;
-        cout << "----------------------------------------------\n";
-        curr = curr->next; // Move to the next account
-    }
-}
+    double GetInitialDeposit() {
+        double deposit;
+        bool isValid = false;
 
+        do {
+            cout << "Enter Initial Deposit Amount (Minimum PHP 5,000.00): PHP ";
+            cin >> deposit;
+
+            // Rule 1: Catch users typing letters, symbols, or nothing at all
+            if (cin.fail()) {
+                cin.clear();              // Reset the stream error flags
+                cin.ignore(1000, '\n');   // Purge the broken data line completely
+                cout << "Invalid numeric format. Please enter a valid number.\n" << endl;
+                continue;
+            }
+
+            // Rule 2: Enforce the strict business limit of PHP 5,000.00
+            if (deposit < 5000.0) {
+                cout << "Deposit denied. The minimum initial deposit required is PHP 5,000.00.\n" << endl;
+                continue;
+            }
+
+            // If it passes both checks, clear the remaining buffer line and break out
+            cin.ignore(1000, '\n');
+            isValid = true;
+
+        } while (!isValid);
+
+        return deposit;
+    }
+
+
+    void CreateAccount() {
+        string name;
+        
+
+        cout << "=== CREATE NEW ACCOUNT ===\n";
+        cout << "Enter Full Name: ";
+        cin.ignore(); 
+        getline(cin, name);
+        
+        string bday = GetBirthday(); 
+        string contact = GetContactNumber();
+        
+        string pin = GetMaskedPin();
+        string encryptedPin = encryptPin(pin);
+        
+        double initialDeposit = GetInitialDeposit();
+
+        string generatedNo = GenerateAccountNum();
+
+        Account newAcc(generatedNo, name, bday, contact, encryptedPin, initialDeposit);
+        Insert_Node(newAcc);
+        
+        cout << "\nAccount created successfully! Saved Account No: " << generatedNo << endl;
+    }
+
+    void Display_All() {
+        if (head == NULL) {
+            cout << "No accounts found in the system.\n";
+            return;
+        }
+
+        Node* curr = head;
+        cout << "\n================ ALL ACCOUNTS ================\n";
+        while (curr != NULL) {
+            cout << "Account No : " << curr->data.acc_No << endl;
+            cout << "Name       : " << curr->data.acc_Name << endl;
+            cout << "Birthday   : " << curr->data.b_day << endl;
+            cout << "Contact    : " << curr->data.c_Num << endl;
+            cout << "Balance    : PHP " << fixed << setprecision(2) << curr->data.balance << endl;
+            cout << "PIN (Secure): " << curr->data.pin << " (Encrypted)" << endl; 
+            cout << "----------------------------------------------\n";
+            curr = curr->next; 
+        }
+    }
 };
 
-
-
-
 int main(){
-    srand(time(0));  // seed random number generator
+    srand(time(0));  
     Account_List ATM;
 
     while (true) {
@@ -186,13 +331,12 @@ int main(){
         switch (choice) {
             case 1:
                 ATM.CreateAccount();
-                cout << "Account created successfully!" << endl;
                 break;
             case 2:
                 ATM.Display_All();
                 break;
             case 3:
-                cout << "Exiting the system. Goodbye!" << endl;
+                cout << "Exiting the system. Goodbye!"<< endl;
                 return 0;
             default:
                 cout << "Invalid option. Please try again." << endl;
@@ -201,4 +345,3 @@ int main(){
  
     return 0;
 }
-
