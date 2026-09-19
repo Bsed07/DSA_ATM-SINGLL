@@ -2,19 +2,20 @@
 #include <string>
 #include <iomanip>
 #include <conio.h>
+#include <fstream>
+#include <sstream>
 #include <ctime>
 
 using namespace std;
 
 struct Account{
-    string acc_No;     // 5-digit account number
-    string acc_Name;   // account holder's name
-    string b_day;      // birthday
-    string c_Num;      // contact number
-    string pin;         // PIN, stored ENCRYPTED
-    double balance;     // current balance
- 
-    // constructor - builds an Account when you already have all the values
+    string acc_No;
+    string acc_Name;
+    string b_day;
+    string c_Num;
+    string pin;
+    double balance;
+
     Account(string a, string n, string b, string c, string p, double bal){
         acc_No = a;
         acc_Name = n;
@@ -23,8 +24,7 @@ struct Account{
         pin = p;
         balance = bal;
     }
- 
-    // default constructor - builds an empty Account (needed so Node can hold one before it's filled in)
+
     Account(){
         balance = 0.0;
     }
@@ -43,8 +43,8 @@ struct Node{
 class Account_List{
     private:
         Node *head;
-        int PIN_SHIFT_KEY = 3; // Shift cipher offset used for encryption
-        
+        int PIN_SHIFT_KEY = 3;
+
         Node* Search_node(string accNo){
             Node *curr = head;
             while(curr != NULL){
@@ -55,12 +55,12 @@ class Account_List{
             }
             return NULL;
         }
-        
+
     public:
     Account_List(){
         head = NULL;
     }
-    
+
     void Insert_Node(Account s){
         Node* newNode = new Node(s);
         if(head == NULL){
@@ -74,30 +74,36 @@ class Account_List{
         curr->next = newNode;
     }
 
+    bool AccountExists(string accNo){
+        if(Search_node(accNo) == NULL){
+            return false;
+        }
+        return true;
+    }
+
+
     string GetBirthday(){
         int month, day, year;
-        char slash1, slash2; // Safely catches and holds formatting characters
+        char slash1, slash2;
         bool ValidDate = false;
         int daysInMonth[] = { 31, 100, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-        
+
         do {
             cout << "Enter birthday (MM/DD/YYYY): ";
             cin >> month >> slash1 >> day >> slash2 >> year;
-            
-            // 1. Check if user typed characters or symbols that broke the stream type
+
             if (cin.fail()) {
-                cin.clear();              
-                cin.ignore(1000, '\n');   
+                cin.clear();
+                cin.ignore(1000, '\n');
                 cout << "Invalid input format. Use numbers and slashes." << endl;
                 continue;
             }
 
-            // 2. Reject inputs that lack actual forward slashes (fixes continuous number inputs like 02122000)
             if (slash1 != '/' || slash2 != '/') {
                 cin.clear();
-                cin.ignore(1000, '\n'); 
+                cin.ignore(1000, '\n');
                 cout << "Invalid format. You must use slashes (/). Example: 02/12/2000" << endl;
-                continue; 
+                continue;
             }
 
             if (month < 1 || month > 12) {
@@ -106,12 +112,12 @@ class Account_List{
                 cout << "Invalid month. Please try again." << endl;
                 continue;
             }
-            
+
             bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
             if (isLeapYear && month == 2) {
-                daysInMonth[1] = 29; 
+                daysInMonth[1] = 29;
             } else {
-                daysInMonth[1] = 28; 
+                daysInMonth[1] = 28;
             }
 
             if (day < 1 || day > daysInMonth[month - 1]) {
@@ -128,12 +134,10 @@ class Account_List{
                 continue;
             }
 
-            ValidDate = true; 
+            ValidDate = true;
             cin.ignore(1000, '\n');
-           
+
         } while (!ValidDate);
-
-
 
         string monthStr = (month < 10) ? "0" + to_string(month) : to_string(month);
         string dayStr = (day < 10) ? "0" + to_string(day) : to_string(day);
@@ -144,16 +148,16 @@ class Account_List{
     string GenerateAccountNum(){
        string accNo;
        do {
-            int num = rand() % 90000 + 10000;   // always 5 digits: 10000–99999
+            int num = rand() % 90000 + 10000;
             accNo = to_string(num);
-        } while (Search_node(accNo) != NULL);  // regenerate on collision
+        } while (Search_node(accNo) != NULL);
 
         return accNo;
     }
 
     string GetMaskedPin() {
-        char pin[7];         // max 6 digits + 1 slot for the terminator
-        int pinLength = 0;   // how many digits typed so far
+        char pin[7];
+        int pinLength = 0;
         char ch;
 
         cout << "Enter PIN (4-6 digits, then press ENTER): ";
@@ -167,26 +171,26 @@ class Account_List{
                     break;
                 }
                 else{
-                 continue; 
+                 continue;
                 }
             }
             else if(ch == '\b'){
                 if(pinLength == 0){
-                    continue; 
+                    continue;
                 }
-                pinLength = pinLength - 1; 
-                cout << "\b \b";           
+                pinLength = pinLength - 1;
+                cout << "\b \b";
             }
             else if(ch >= '0' && ch <= '9'){
                 if(pinLength < 6){
-                    pin[pinLength] = ch;     
+                    pin[pinLength] = ch;
                     pinLength = pinLength + 1;
-                    cout << '*';             
+                    cout << '*';
                 }
             }
         }
 
-        pin[pinLength] = '\0'; 
+        pin[pinLength] = '\0';
         return string(pin);
     }
 
@@ -194,11 +198,22 @@ class Account_List{
         string encryptedPin = plainPin;
         for(size_t i = 0; i < encryptedPin.size(); i++){
              int originalDigit = encryptedPin[i] - '0';
-             int shiftedDigit = (originalDigit + PIN_SHIFT_KEY) % 10;  
-             encryptedPin[i] = char('0' + shiftedDigit);               
+             int shiftedDigit = (originalDigit + PIN_SHIFT_KEY) % 10;
+             encryptedPin[i] = char('0' + shiftedDigit);
         }
         return encryptedPin;
     }
+
+    string decryptPin(string encryptedPin){
+        string decryptedPin = encryptedPin;
+        for(size_t i = 0; i < decryptedPin.size(); i++){
+            int shiftedDigit = decryptedPin[i] - '0';                         
+            int originalDigit = (shiftedDigit - PIN_SHIFT_KEY + 10) % 10;     
+            decryptedPin[i] = char('0' + originalDigit);                      
+        }
+        return decryptedPin;
+    }
+    
 
     string GetContactNumber(){
         string contact;
@@ -245,21 +260,18 @@ class Account_List{
             cout << "Enter Initial Deposit Amount (Minimum PHP 5,000.00): PHP ";
             cin >> deposit;
 
-            // Rule 1: Catch users typing letters, symbols, or nothing at all
             if (cin.fail()) {
-                cin.clear();              // Reset the stream error flags
-                cin.ignore(1000, '\n');   // Purge the broken data line completely
+                cin.clear();
+                cin.ignore(1000, '\n');
                 cout << "Invalid numeric format. Please enter a valid number.\n" << endl;
                 continue;
             }
 
-            // Rule 2: Enforce the strict business limit of PHP 5,000.00
             if (deposit < 5000.0) {
                 cout << "Deposit denied. The minimum initial deposit required is PHP 5,000.00.\n" << endl;
                 continue;
             }
 
-            // If it passes both checks, clear the remaining buffer line and break out
             cin.ignore(1000, '\n');
             isValid = true;
 
@@ -268,29 +280,28 @@ class Account_List{
         return deposit;
     }
 
-
     void CreateAccount() {
         string name;
-        
+
 
         cout << "=== CREATE NEW ACCOUNT ===\n";
         cout << "Enter Full Name: ";
-        cin.ignore(); 
+        cin.ignore();
         getline(cin, name);
-        
-        string bday = GetBirthday(); 
+
+        string bday = GetBirthday();
         string contact = GetContactNumber();
-        
+
         string pin = GetMaskedPin();
         string encryptedPin = encryptPin(pin);
-        
+
         double initialDeposit = GetInitialDeposit();
 
         string generatedNo = GenerateAccountNum();
 
         Account newAcc(generatedNo, name, bday, contact, encryptedPin, initialDeposit);
         Insert_Node(newAcc);
-        
+
         cout << "\nAccount created successfully! Saved Account No: " << generatedNo << endl;
     }
 
@@ -308,16 +319,126 @@ class Account_List{
             cout << "Birthday   : " << curr->data.b_day << endl;
             cout << "Contact    : " << curr->data.c_Num << endl;
             cout << "Balance    : PHP " << fixed << setprecision(2) << curr->data.balance << endl;
-            cout << "PIN (Secure): " << curr->data.pin << " (Encrypted)" << endl; 
+            cout << "PIN (Secure): " << curr->data.pin << " (Encrypted)" << endl;
             cout << "----------------------------------------------\n";
-            curr = curr->next; 
+            curr = curr->next;
         }
     }
+
+    void SaveInfo(){
+        ofstream outFile("ATMDATA.csv");
+
+        Node* curr = head;
+        while(curr != NULL){
+            outFile << curr->data.acc_No << ","
+                    << curr->data.acc_Name << ","
+                    << curr->data.b_day << ","
+                    << curr->data.c_Num << ","
+                    << curr->data.pin << ","
+                    << curr->data.balance << endl;
+                curr = curr->next;
+            }
+
+            outFile.close();
+        }
+
+    void RetrieveInfo(){
+        ifstream inFile("ATMDATA.csv");
+
+        if(!inFile){
+            return; // no save file yet - nothing to load, list just stays empty
+        }
+
+        string line;
+        while(getline(inFile, line)){
+            if(line.empty()){
+                continue; // skip blank lines
+            }
+
+            stringstream ss(line);
+            string accNo, accName, bday, cNum, pin, balanceStr;
+
+            getline(ss, accNo, ',');
+            getline(ss, accName, ',');
+            getline(ss, bday, ',');
+            getline(ss, cNum, ',');
+            getline(ss, pin, ',');
+            getline(ss, balanceStr, ',');
+
+            // crash-guard: if any field failed to parse, skip this row instead of crashing
+            if(accNo.empty() || balanceStr.empty()){
+                cout << "Skipped a corrupted row: " << line << endl;
+                continue;
+            }
+
+            double balance = stod(balanceStr);
+            Insert_Node(Account(accNo, accName, bday, cNum, pin, balance));
+        }
+
+        inFile.close();
+    }
+
 };
 
 int main(){
-    srand(time(0));  
+    srand(time(0));
     Account_List ATM;
+    ATM.RetrieveInfo();
+
+    string cardPath = "ATMCard.txt"; // will later point at a real USB path
+
+    // ============================================================
+    // CARD GATE - nothing below this loop is reachable without a card
+    // ============================================================
+    bool cardFound = false;
+    while(!cardFound){
+        ifstream cardCheck(cardPath);
+
+        if(!cardCheck){
+            cout << "Please insert card." << endl;
+            cout << "Press ENTER once your card is inserted, or type 3 then ENTER to exit: ";
+            string response;
+            getline(cin, response);
+
+            if(response == "3"){
+                cout << "Exiting the system. Goodbye!" << endl;
+                return 0;
+            }
+            continue; // check again
+        }
+
+        cardFound = true;
+        cardCheck.close();
+    }
+
+    cout << "Card detected." << endl;
+
+    // ============================================================
+    // BLANK vs. ALREADY-REGISTERED CARD DETECTION
+    // ============================================================
+    ifstream cardContent(cardPath);
+    string cardLine;
+    getline(cardContent, cardLine); // reads the first (and only) line on the card
+    cardContent.close();
+
+    if(cardLine.empty()){
+        cout << "This card has no account on it yet. (New registration flow goes here.)" << endl;
+    }
+    else{
+        stringstream cardStream(cardLine);
+        string cardAccNo, cardPin;
+        getline(cardStream, cardAccNo, ',');
+        getline(cardStream, cardPin, ',');
+
+        cout << "Card claims account number: " << cardAccNo << endl;
+
+        if(ATM.AccountExists(cardAccNo)){
+            cout << "This account number exists in our records. (PIN check goes here next.)" << endl;
+        }
+        else{
+            cout << "No account with this number exists in our records. Card rejected." << endl;
+        }
+    }
 
     while (true) {
         cout << "\n=== ATM SYSTEM ===\n";
@@ -331,6 +452,7 @@ int main(){
         switch (choice) {
             case 1:
                 ATM.CreateAccount();
+                ATM.SaveInfo();
                 break;
             case 2:
                 ATM.Display_All();
@@ -342,6 +464,6 @@ int main(){
                 cout << "Invalid option. Please try again." << endl;
         }
     }
- 
+
     return 0;
 }
